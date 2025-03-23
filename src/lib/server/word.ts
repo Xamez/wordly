@@ -1,6 +1,7 @@
 import fs from 'fs';
 
 let validSequences: string[] = [];
+let validWords: string[] = [];
 
 export async function initializeWordLibrary() {
 	const words = fs
@@ -8,6 +9,9 @@ export async function initializeWordLibrary() {
 		.split('\n')
 		.map((w) => w.trim().toLowerCase());
 	const sequenceCounts: Record<string, number> = {};
+
+	validWords = words;
+	console.log(`Loaded ${validWords.length} valid words`);
 
 	words.forEach((word) => {
 		for (let i = 0; i < word.length - 1; i++) {
@@ -25,4 +29,12 @@ export async function initializeWordLibrary() {
 
 export function generateLetters(): string {
 	return validSequences[Math.floor(Math.random() * validSequences.length)];
+}
+
+export function isValidWord(word: string): boolean {
+	return validWords.includes(word.toLowerCase());
+}
+
+export function containsSequence(word: string, sequence: string): boolean {
+	return word.toLowerCase().includes(sequence.toLowerCase());
 }

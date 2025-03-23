@@ -12,6 +12,7 @@ interface ServerToClientEvents {
 	'room-players': (players: GamePlayer[], ownerId: string) => void;
 	'player-lost-life': (playerId: string, livesLeft: number) => void;
 	'player-eliminated': (playerId: string) => void;
+	'next-turn': (data: { currentPlayer: string; currentLetters: string }) => void;
 }
 
 interface ClientToServerEvents {
@@ -19,7 +20,7 @@ interface ClientToServerEvents {
 	'leave-room': (roomId: string, callback: (success: boolean) => void) => void;
 	'start-game': (roomId: string, callback: (success: boolean) => void) => void;
 	'end-game': (roomId: string, callback: (success: boolean) => void) => void;
-	'submit-word': (data: { roomId: string; word: string }, callback: (result: WordResultData) => void) => void;
+	'submit-word': (data: { roomId: string; word: string, timeRemaining: number }, callback: (result: WordResultData) => void) => void;
 	'get-room-players': (roomId: string, callback: (players: GamePlayer[], ownerId: string) => void) => void;
 }
 
@@ -27,8 +28,9 @@ interface GameStartData {
 	roomId: string;
 	players: GamePlayer[];
 	startTime: number;
+	currentPlayer: string;
+	currentLetters: string;
 }
-
 interface GameEndData {
 	roomId: string;
 	winner?: string;
@@ -166,11 +168,20 @@ class GameSocketClient {
 
 	public startGame(): Promise<boolean> {
 		if (!this.currentRoom || !this.isRoomOwner) {
+			console.error('Cannot start game: not in a room or not the owner');
 			return Promise.resolve(false);
 		}
 
+		this.isSpectator = false;
+		
 		return new Promise((resolve) => {
-			this.socket.emit('start-game', this.currentRoom, resolve);
+			console.log('Emitting start-game event for room:', this.currentRoom);
+			this.socket.emit('start-game', this.currentRoom, (success: boolean) => {
+				console.log('Start game response:', success);
+				resolve(success);
+			});
+			console.log(this.players);
+			
 		});
 	}
 
@@ -184,7 +195,7 @@ class GameSocketClient {
 		});
 	}
 
-	public submitWord(word: string): Promise<WordResultData> {
+	public submitWord(word: string, timeRemaining: number): Promise<WordResultData> {
 		if (!this.currentRoom) {
 			return Promise.resolve({
 				correct: false,
@@ -206,7 +217,8 @@ class GameSocketClient {
 				'submit-word',
 				{
 					roomId: this.currentRoom,
-					word
+					word,
+					timeRemaining
 				},
 				(result: WordResultData) => {
 					if (result.isEliminated) {
@@ -254,6 +266,10 @@ class GameSocketClient {
 		this.socket.on('player-eliminated', callback);
 	}
 
+	public onNextTurn(callback: (data: { currentPlayer: string; currentLetters: string }) => void): void {
+		this.socket.on('next-turn', callback);
+	}
+
 	public disconnect(): void {
 		this.socket.disconnect();
 	}
@@ -276,10 +292,6 @@ class GameSocketClient {
 
 	public get players(): GamePlayer[] {
 		return [...this.roomPlayers];
-	}
-
-	public get activePlayers(): GamePlayer[] {
-		return this.roomPlayers.filter((p) => !p.isSpectator);
 	}
 
 	public get spectators(): GamePlayer[] {
@@ -314,6 +326,25 @@ class GameSocketClient {
 
 	public get isCurrentPlayerSpectator(): boolean {
 		return this.isSpectator;
+	}
+
+	public shareTypingUpdate(
+		currentInput: string,
+		isCurrentPlayerTurn: boolean = true,
+		currentTimeRemaining: number = 0
+	): void {
+		if (!this.currentRoom || !isCurrentPlayerTurn) return;
+
+		this.socket.emit('player-typing', {
+			roomId: this.currentRoom,
+			input: currentInput,
+			timeRemaining: currentTimeRemaining
+		});
+	}
+
+	// Add this event handler
+	public onPlayerTyping(callback: (playerId: string, input: string, timeRemaining: number) => void): void {
+		this.socket.on('player-typing-update', callback);
 	}
 }
 

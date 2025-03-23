@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { getSocketClient, playerData } from '$lib/stores/socket';
 	import type { GamePlayer } from '$lib/server/socket';
-	import { onMount, onDestroy } from 'svelte';
+	import { getSocketClient, playerData } from '$lib/stores/socket';
+	import { onMount } from 'svelte';
 
 	let players: GamePlayer[] = [];
 	let roomOwner: string = '';
@@ -28,10 +28,8 @@
 				}
 			}
 
-			// Wait briefly to ensure we're fully connected
 			await new Promise((resolve) => setTimeout(resolve, 100));
 
-			// Get room players data
 			const roomData = await socketClient.getRoomPlayers();
 			console.log('Room data received:', roomData);
 			players = roomData.players;
@@ -53,10 +51,24 @@
 
 	async function startGame() {
 		if (socketClient && socketClient.isOwner) {
-			const success = await socketClient.startGame();
-			if (success) {
-				goto(`/game/${roomId}`);
+			try {
+				console.log('Attempting to start game');
+				const success = await socketClient.startGame();
+				console.log('Game start result:', success);
+
+				if (success) {
+					console.log('Game started successfully, navigating to game page');
+					goto(`/game/${roomId}`);
+				} else {
+					console.error('Failed to start game');
+					errorMessage = 'Failed to start game. Please try again.';
+				}
+			} catch (error) {
+				console.error('Error starting game:', error);
+				errorMessage = 'Error starting game';
 			}
+		} else {
+			console.error('Cannot start game: not the room owner');
 		}
 	}
 
@@ -74,6 +86,11 @@
 			roomOwner = ownerId;
 		});
 
+		socketClient.onGameStarted((data) => {
+			console.log('Game started event received:', data);
+			goto(`/game/${roomId}`);
+		});
+
 		if (socketClient.room === roomId) {
 			console.log('Already in room, refreshing players');
 			const roomData = await socketClient.getRoomPlayers();
@@ -88,11 +105,6 @@
 			console.log('Not in any room, joining now');
 			await joinRoom();
 		}
-	});
-
-	onDestroy(() => {
-		// Don't leave the room on navigation, only on explicit leave button click
-		// Just clean up event listeners if needed
 	});
 </script>
 
