@@ -1,13 +1,9 @@
-import fs from 'fs';
+import words from '$lib/data/words.json';
 
 let validSequences: string[] = [];
 let validWords: string[] = [];
 
 export async function initializeWordLibrary() {
-	const words = fs
-		.readFileSync('src/lib/data/words.txt', 'utf8')
-		.split('\n')
-		.map((w) => w.trim().toLowerCase());
 	const sequenceCounts: Record<string, number> = {};
 
 	validWords = words;
