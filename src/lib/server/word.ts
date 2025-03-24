@@ -5,7 +5,7 @@ let validWords: string[] = [];
 
 export async function initializeWordLibrary() {
 	const words = fs
-		.readFileSync('static/words.txt', 'utf8')
+		.readFileSync('src/lib/data/words.txt', 'utf8')
 		.split('\n')
 		.map((w) => w.trim().toLowerCase());
 	const sequenceCounts: Record<string, number> = {};
