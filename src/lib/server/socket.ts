@@ -445,6 +445,7 @@ export async function initializeSocketServer() {
                     livesLeft: player.lives
                 });
 
+                room.currentLetters = undefined;
                 nextTurn(io, room, roomId);
 
             }
